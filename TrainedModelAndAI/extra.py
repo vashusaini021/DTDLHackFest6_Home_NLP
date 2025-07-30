@@ -281,12 +281,11 @@ def query_dataframes_directly(query, field_mapping):
 def load_excel_files(data_folder="data"):
     logger.info("Loading Excel files...")
     docs = []
-    global metadata_map, original_dataframes
+    global metadata_map
     metadata_map.clear()
-    original_dataframes.clear()
 
-    # Smaller chunks for better granularity
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+    # Generic chunks for better retrieval
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=50)
 
     if not os.path.exists(data_folder):
         logger.error(f"Data folder {data_folder} does not exist!")
@@ -302,7 +301,6 @@ def load_excel_files(data_folder="data"):
         try:
             xls = pd.ExcelFile(path)
             metadata_map[file] = {}
-            original_dataframes[file] = {}
             logger.info(f"Sheets in {file}: {xls.sheet_names}")
             
             for sheet in xls.sheet_names:
@@ -311,49 +309,37 @@ def load_excel_files(data_folder="data"):
                     df = pd.read_excel(path, sheet_name=sheet)
                     
                     # Clean column names and handle NaN values
-                    df.columns = df.columns.astype(str).str.strip()
+                    df.columns = df.columns.astype(str)
                     df = df.fillna('')
                     
-                    # Store original DataFrame
-                    original_dataframes[file][sheet] = df.copy()
-                    
-                    # Store metadata properly
                     metadata_map[file][sheet] = list(df.columns)
                     logger.info(f"Columns in {sheet}: {list(df.columns)}")
                     
-                    # Convert to CSV for vectorization
+                    # Convert to CSV with better formatting
                     csv_text = df.to_csv(index=False, encoding='utf-8')
                     
-                    # Create smaller, more focused chunks
+                    # Create chunks
                     chunks = splitter.split_text(csv_text)
                     
                     for i, chunk in enumerate(chunks):
-                        # Enhanced metadata with column information
+                        # Generic metadata without hardcoded assumptions
                         doc_metadata = {
                             "file": file,
                             "sheet": sheet,
                             "columns": list(df.columns),
                             "chunk_id": f"{file}_{sheet}_{i}",
-                            "total_rows": len(df),
-                            "columns_text": " | ".join(df.columns)
+                            "total_rows": len(df)
                         }
                         
-                        # Enhanced content with column headers and better structure
-                        enhanced_content = f"""
-File: {file}
-Sheet: {sheet}
-Columns: {' | '.join(df.columns)}
-Data Type: Excel Sheet Content
-Searchable Fields: {' '.join(df.columns)}
-
-{chunk}
-"""
-                        
                         doc = Document(
-                            page_content=enhanced_content,
+                            page_content=chunk,
                             metadata=doc_metadata
                         )
                         docs.append(doc)
+                        
+                        # Log first few documents to verify metadata
+                        if len(docs) <= 3:
+                            logger.info(f"Created document {len(docs)}: metadata={doc_metadata}")
                     
                     logger.info(f"Processed {file} - {sheet}: {len(df)} rows, {len(chunks)} chunks")
                     
@@ -366,7 +352,7 @@ Searchable Fields: {' '.join(df.columns)}
             continue
     
     logger.info(f"Total documents created: {len(docs)}")
-    logger.info(f"Original DataFrames stored: {len(original_dataframes)}")
+    logger.info(f"Metadata map: {metadata_map}")
     return docs
 
 # ---- Build FAISS vector store ----

@@ -6,3 +6,5 @@ langchain-openai
 langchain-community
 openai
 faiss-cpu
+certifi
+openpyxl
