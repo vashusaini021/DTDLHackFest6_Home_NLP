@@ -37,6 +37,11 @@ Install dependencies:
 
 ```bash
 python3 -m pip install --break-system-packages -r requirements.txt
+
+after successfully done with above install certify using below command
+
+python3 -m pip install certifi --break-system-packages
+
 ```
 
 ---
@@ -51,6 +56,7 @@ GitHub restricts files >100MB from being pushed through regular Git. To handle l
 
 ```bash
 brew install git-lfs
+afte this clone repo with "git-lfs clone url.."
 ```
 
 #### Ubuntu/Debian:
@@ -65,6 +71,7 @@ sudo apt install git-lfs
 - Download and install from: https://git-lfs.com/
 
 ---
+
 ## 🔑 OpenAI API Key
 
 Set your OpenAI API key in `app.py` (look for `API_KEY = ...`), or modify the code to load from environment variables.
@@ -79,7 +86,7 @@ Start the FastAPI server locally:
 uvicorn app:app --reload
 ```
 
-Then go to:  
+Then go to:
 👉 **http://127.0.0.1:8000/docs** – to try it out via Swagger UI
 
 ---
