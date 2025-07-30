@@ -6,14 +6,14 @@ It exposes a FastAPI backend that you can run locally and query with plain Engli
 
 ---
 
-## 🚀 Features
+## ✨ Features
 
-- Upload Excel files with multiple sheets
-- Semantic/NLP querying via OpenAI (GPT-4o)
-- Uses FAISS vector store for document indexing
-- Smart AI-based field mapping
-- Embedding & mapping cache to reduce API calls
-- Throttled embeddings to respect OpenAI rate limits
+* Upload Excel files with multiple sheets
+* Semantic/NLP querying via OpenAI (GPT-4o)
+* Uses FAISS vector store for document indexing
+* Smart AI-based field mapping
+* Embedding & mapping cache to reduce API calls
+* Throttled embeddings to respect OpenAI rate limits
 
 ---
 
@@ -28,20 +28,15 @@ It exposes a FastAPI backend that you can run locally and query with plain Engli
 
 ---
 
-## 📦 Requirements
+## 📆 Requirements
 
-- Python 3.9+
-- OpenAI API Key
+* Python 3.9+
+* OpenAI API Key
 
 Install dependencies:
 
 ```bash
 python3 -m pip install --break-system-packages -r requirements.txt
-
-after successfully done with above install certify using below command
-
-python3 -m pip install certifi --break-system-packages
-
 ```
 
 ---
@@ -68,7 +63,7 @@ sudo apt install git-lfs
 
 #### Windows:
 
-- Download and install from: https://git-lfs.com/
+* Download and install from: [https://git-lfs.com/](https://git-lfs.com/)
 
 ---
 
@@ -87,27 +82,54 @@ uvicorn app:app --reload
 ```
 
 Then go to:
-👉 **http://127.0.0.1:8000/docs** – to try it out via Swagger UI
+
+👉 **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)** – to try it out via Swagger UI
+
+---
+
+## 🐳 Run with Docker
+
+You can run the app using Docker without setting up Python manually.
+
+### 📦 Load Docker Image
+
+First, load the prebuilt Docker image from your project directory:
+
+```bash
+docker load -i hackfest_ai
+```
+
+### ▶️ Run the Container
+
+Then start the container using:
+
+```bash
+docker run -p 8000:8000 hackfest6-home:latest
+```
+
+Once the container is running, visit:
+
+👉 **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)** – to interact with the API via Swagger UI
 
 ---
 
 ## 🧠 How It Works
 
-- Excel sheets are loaded and indexed
-- LangChain splits the content and creates embeddings
-- FAISS stores the vector data locally
-- Queries are semantically matched using GPT and filtered
-- Responses are returned as structured JSON
+* Excel sheets are loaded and indexed
+* LangChain splits the content and creates embeddings
+* FAISS stores the vector data locally
+* Queries are semantically matched using GPT and filtered
+* Responses are returned as structured JSON
 
 ---
 
 ## 🧩 TODO / Ideas
 
-- ✅ Smart semantic query understanding
-- ✅ Vector caching using FAISS
-- ⏳ File upload endpoint
-- ⏳ Basic frontend (streamlit or React)
-- ⏳ Long-term persistent vector DB
+* ✅ Smart semantic query understanding
+* ✅ Vector caching using FAISS
+* ⏳ File upload endpoint
+* ⏳ Basic frontend (streamlit or React)
+* ⏳ Long-term persistent vector DB
 
 ---
 

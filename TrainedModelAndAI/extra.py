@@ -221,7 +221,7 @@ def query_dataframes_directly(query, field_mapping):
                         matching_filter_cols.append(df_col)
                         break
             
-            # Find matching display columns  
+            # Find matching display columns
             matching_display_cols = []
             for display_col in display_columns:
                 for df_col in df_columns:
@@ -268,7 +268,7 @@ def query_dataframes_directly(query, field_mapping):
     seen = set()
     for result in results:
         # Create a hash of the record content (excluding metadata)
-        content_hash = hash(str({k: v for k, v in result.items() 
+        content_hash = hash(str({k: v for k, v in result.items()
                                 if k not in ['source_file', 'source_sheet', 'row_index']}))
         if content_hash not in seen:
             seen.add(content_hash)
@@ -421,7 +421,7 @@ async def ask(query: str = Query(...)):
             record = {
                 "source_file": result["source_file"],
                 "source_sheet": result["source_sheet"],
-                "all_fields": {k: v for k, v in result.items() 
+                "all_fields": {k: v for k, v in result.items()
                              if k not in ['source_file', 'source_sheet', 'row_index']}
             }
             structured_data.append(record)
@@ -586,7 +586,7 @@ async def root():
         "message": "Excel Query API with AI Result Filtering",
         "features": [
             "Direct DataFrame querying for comprehensive results",
-            "AI-powered result filtering for accuracy", 
+            "AI-powered result filtering for accuracy",
             "Smart field mapping with AI",
             "Post-processing quality control",
             "Removes false positives automatically"
