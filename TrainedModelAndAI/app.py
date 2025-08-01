@@ -12,12 +12,21 @@ from langchain.chains import RetrievalQA
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from config import API_KEY
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # ---- Logging ----
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 VECTORSTORE_DIR = "vectorstore"
 metadata_map = {}  # file → sheet → columns
 field_mapping_cache = {}  # Cache for field mappings
