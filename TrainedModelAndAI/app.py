@@ -13,7 +13,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 
 # ---- API Key ----
-API_KEY = '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'
+API_KEY = ''
 
 # ---- Logging ----
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
