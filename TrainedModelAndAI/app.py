@@ -13,7 +13,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 
 # ---- API Key ----
-API_KEY = ''
+API_KEY = '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'
 
 # ---- Logging ----
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -404,9 +404,7 @@ logger.info(f"Vectorstore has {len(vectorstore.index_to_docstore_id)} documents.
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, openai_api_key=API_KEY)
 logger.info("Server ready.")
 
-# ---- Enhanced API endpoint with AI filtering ----
-# Add this function to your app.py file after the ai_filter_results function
-
+# ---- Enhanced AI Consolidation Function ----
 def ai_consolidate_records(filtered_results, query):
     """
     Uses AI to intelligently consolidate multiple records that belong to the same entity
@@ -594,8 +592,129 @@ CRITICAL: Return ONLY the JSON object, no other text.
         # Return original results if consolidation fails
         return filtered_results
 
+# ---- NEW: AI Answer Generation Function ----
+def generate_natural_answer(query, consolidated_results):
+    """
+    Generate a natural language answer based on the query and consolidated results
+    """
+    if not consolidated_results:
+        return "No results found for your query."
+    
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, openai_api_key=API_KEY)
+    
+    # Prepare data for answer generation (limit to avoid token limits)
+    sample_results = consolidated_results
+    
+    # Extract key information from consolidated results
+    answer_data = []
+    for result in sample_results:
+        if isinstance(result, dict) and "consolidated_data" in result:
+            # This is a consolidated record
+            data_fields = result["consolidated_data"]
+            entity_id = result.get("entity_identifier", "Unknown")
+        else:
+            # This is a regular record
+            data_fields = {k: v for k, v in result.items() 
+                          if k not in ['source_file', 'source_sheet', 'row_index']}
+            entity_id = "Record"
+        
+        # Include the most relevant fields (limit field values to avoid token overflow)
+        limited_fields = {}
+        for key, value in data_fields.items():
+            if value and str(value).strip():
+                limited_fields[key] = str(value)[:100] if len(str(value)) > 100 else str(value)
+        
+        answer_data.append({
+            "entity": entity_id,
+            "fields": limited_fields
+        })
+    
+    data_json = json.dumps(answer_data, indent=2)
+    
+    prompt = f"""
+You are an intelligent data assistant. Based on the user's query and the found data, provide a direct, natural language answer.
 
-# Update the main /ask endpoint to include consolidation
+User Query: "{query}"
+
+Found Data:
+{data_json}
+
+Instructions for generating the answer:
+1. Analyze what the user is specifically asking for
+2. Extract the most relevant information from the data to answer their question
+3. Provide a direct, concise answer in natural language
+4. For list queries (e.g., "list all female employees"), provide comma-separated names or items
+5. For specific information queries (e.g., "department of John"), provide just the requested information there can be case where deparment have multiple fileds like Department (Value Stream) and Sub Department (Sub Stream) give all in a
+6. For count queries, provide the number
+7. For descriptive queries, provide a brief summary
+8. If there are multiple results, organize them logically (alphabetically, by relevance, etc.)
+9. Keep the answer focused and avoid unnecessary details
+10. If no relevant data is found, say so clearly
+
+Examples of good answers:
+- Query: "List all female employees" → Answer: "Sarah Johnson, Maria Garcia, Lisa Chen, Amanda Roberts"
+- Query: "What is John's department?" → Answer: "Engineering"
+- Query: "How many employees are in sales?" → Answer: "12 employees"
+- Query: "Who has birthday in July?" → Answer: "Mike Wilson (July 15), Sarah Davis (July 22)"
+
+CRITICAL: 
+1. Provide ONLY the direct answer, no explanations about the data structure or methodology.
+2. For specific information queries (e.g., "department of John"), provide just the requested information and there can be case where deparment have multiple fileds like Department (Value Stream) and Sub Department (Sub Stream) give all in answer.
+"""
+    
+    try:
+        response = llm.invoke(prompt).content.strip()
+        logger.info(f"Generated natural answer: {response}")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Answer generation failed: {e}")
+        # Fallback: create a simple answer from the data
+        return create_fallback_answer(query, consolidated_results)
+
+def create_fallback_answer(query, consolidated_results):
+    """
+    Create a simple fallback answer if AI generation fails
+    """
+    if not consolidated_results:
+        return "No results found."
+    
+    # Simple fallback logic
+    query_lower = query.lower()
+    
+    # For list queries, try to extract names or key identifiers
+    if any(word in query_lower for word in ['list', 'all', 'who are', 'show me']):
+        names = []
+        for result in consolidated_results[:10]:  # Limit to first 10
+            if isinstance(result, dict):
+                data = result.get("consolidated_data", result)
+                # Look for name-like fields
+                for field, value in data.items():
+                    if field and value and any(name_word in field.lower() for name_word in ['name', 'employee', 'person']):
+                        if str(value).strip():
+                            names.append(str(value).strip())
+                        break
+        
+        if names:
+            return ", ".join(names[:10])  # Limit to 10 names
+    
+    # For count queries
+    if any(word in query_lower for word in ['how many', 'count', 'number of']):
+        return f"{len(consolidated_results)} records found"
+    
+    # Default: return first relevant piece of information
+    if consolidated_results:
+        first_result = consolidated_results[0]
+        if isinstance(first_result, dict):
+            data = first_result.get("consolidated_data", first_result)
+            # Return first non-empty value
+            for field, value in data.items():
+                if value and str(value).strip() and field not in ['source_file', 'source_sheet', 'row_index']:
+                    return str(value).strip()
+    
+    return f"Found {len(consolidated_results)} matching records"
+
+# Update the main /ask endpoint to include answer generation
 @app.get("/ask")
 async def ask(query: str = Query(...)):
     try:
@@ -635,8 +754,13 @@ async def ask(query: str = Query(...)):
         consolidated_results = ai_consolidate_records(structured_data, query)
         logger.info(f"Consolidation: {len(structured_data)} → {len(consolidated_results)} records")
         
+        # Generate natural language answer
+        natural_answer = generate_natural_answer(query, consolidated_results)
+        logger.info(f"Generated answer: {natural_answer}")
+        
         return JSONResponse({
             "query": query,
+            "answer": natural_answer,
             "field_mapping": field_mapping,
             "method_used": "direct_query_with_ai_filtering_and_consolidation",
             "structured_data": consolidated_results,
@@ -650,13 +774,170 @@ async def ask(query: str = Query(...)):
                 "consolidation_applied": len(structured_data) != len(consolidated_results),
                 "files_searched": list(original_dataframes.keys()),
                 "ai_quality_check": True,
-                "ai_consolidation": True
+                "ai_consolidation": True,
+                "answer_generated": True
             }
         })
         
     except Exception as e:
         logger.error(f"Error processing query: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
+    
+@app.get("/chat")
+async def chat(query: str = Query(...)):
+    """
+    Single ChatGPT-like endpoint that can handle any type of query:
+    - Excel data queries (uses your existing data)
+    - General questions
+    - Math problems
+    - HR analysis
+    - Anything else you can think of
+    """
+    try:
+        logger.info(f"Processing chat query: {query}")
+        
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3, openai_api_key=API_KEY)
+        
+        # First, determine if this is a data-related query or general query
+        classification_prompt = f"""
+        Analyze this user query and determine if it's asking about data from Excel files/spreadsheets or if it's a general question.
+        
+        Query: "{query}"
+        
+        Available Excel data includes employee information, HR records, and other business data.
+        
+        Respond with only one word:
+        - "DATA" if the query is asking about specific information from Excel files/databases
+        - "GENERAL" if it's a general question, math problem, analysis, or anything not requiring Excel data
+        
+        Examples:
+        - "List all employees" → DATA
+        - "Who has birthday in July?" → DATA  
+        - "What is 2+2?" → GENERAL
+        - "Analyze this HR scenario..." → GENERAL
+        - "Tell me about remote work" → GENERAL
+        """
+        
+        try:
+            classification = llm.invoke(classification_prompt).content.strip().upper()
+            logger.info(f"Query classified as: {classification}")
+        except:
+            classification = "GENERAL"  # Default to general if classification fails
+        
+        if classification == "DATA" and metadata_map:
+            # Handle data queries using your existing logic
+            try:
+                logger.info("Processing as data query...")
+                
+                # Get all available columns for smart mapping
+                all_columns = []
+                for file, sheets in metadata_map.items():
+                    for sheet, columns in sheets.items():
+                        all_columns.extend(columns)
+                all_columns = list(dict.fromkeys(all_columns))
+                
+                # Get smart field mapping
+                field_mapping = get_smart_field_mapping(query, all_columns)
+                
+                # Query DataFrames directly
+                raw_results = query_dataframes_directly(query, field_mapping)
+                
+                if raw_results:
+                    # Apply AI filtering
+                    filtered_results = ai_filter_results(query, raw_results)
+                    
+                    # Format for consolidation
+                    structured_data = []
+                    for result in filtered_results:
+                        record = {
+                            "source_file": result["source_file"],
+                            "source_sheet": result["source_sheet"],
+                            "all_fields": {k: v for k, v in result.items()
+                                         if k not in ['source_file', 'source_sheet', 'row_index']}
+                        }
+                        structured_data.append(record)
+                    
+                    # Apply consolidation
+                    consolidated_results = ai_consolidate_records(structured_data, query)
+                    
+                    # Generate natural answer
+                    answer = generate_natural_answer(query, consolidated_results)
+                    
+                    return JSONResponse({
+                        "query": query,
+                        "answer": answer,
+                        "type": "data_query",
+                        "data_found": True,
+                        "records_count": len(consolidated_results),
+                        "model_used": "gpt-4o-mini",
+                        "success": True,
+                        "timestamp": time.time()
+                    })
+                else:
+                    # No data found, fall back to general response
+                    logger.info("No data found, falling back to general response")
+                    classification = "GENERAL"
+            except Exception as data_error:
+                logger.error(f"Data query failed: {data_error}")
+                # Fall back to general query
+                classification = "GENERAL"
+        
+        # Handle as general query (or fallback from data query)
+        if classification == "GENERAL" or not metadata_map:
+            logger.info("Processing as general query...")
+            
+            general_prompt = f"""
+You are an intelligent AI assistant similar to ChatGPT. You can help with a wide variety of tasks including:
+
+- Answering general knowledge questions
+- Solving mathematical problems
+- Analyzing scenarios (HR, business, personal, etc.)
+- Providing explanations and tutorials
+- Creative writing and brainstorming
+- Technical questions and coding help
+- And much more
+
+User Query: "{query}"
+
+Instructions:
+1. Understand what the user is asking for
+2. Provide a comprehensive, helpful, and accurate response
+3. For analytical questions, break down your thinking
+4. For math problems, show your work step by step
+5. For complex topics, provide structured explanations
+6. Be conversational but informative
+7. If you need clarification, ask follow-up questions
+
+Please provide a detailed, helpful response to the user's query.
+"""
+
+            try:
+                response = llm.invoke(general_prompt).content.strip()
+                
+                return JSONResponse({
+                    "query": query,
+                    "answer": response,
+                    "type": "general_query",
+                    "model_used": "gpt-4o-mini",
+                    "success": True,
+                    "timestamp": time.time()
+                })
+                
+            except Exception as llm_error:
+                logger.error(f"OpenAI API error: {llm_error}")
+                return JSONResponse({
+                    "query": query,
+                    "error": f"OpenAI API error: {str(llm_error)}",
+                    "success": False
+                }, status_code=500)
+            
+    except Exception as e:
+        logger.error(f"Error processing chat query: {e}", exc_info=True)
+        return JSONResponse({
+            "query": query,
+            "error": str(e),
+            "success": False
+        }, status_code=500)
         
 @app.get("/ask_raw")
 async def ask_raw(query: str = Query(...)):
@@ -795,16 +1076,17 @@ async def rebuild_vectorstore():
 @app.get("/")
 async def root():
     return {
-        "message": "Excel Query API with AI Result Filtering",
+        "message": "Excel Query API with AI Result Filtering and Natural Language Answers",
         "features": [
             "Direct DataFrame querying for comprehensive results",
             "AI-powered result filtering for accuracy", 
             "Smart field mapping with AI",
             "Post-processing quality control",
-            "Removes false positives automatically"
+            "Removes false positives automatically",
+            "Natural language answer generation"
         ],
         "endpoints": [
-            "/ask - Direct query + AI filtering (recommended)",
+            "/ask - Direct query + AI filtering + Natural Answer (recommended)",
             "/ask_raw - Direct query without AI filtering (for comparison)",
             "/metadata - View available columns",
             "/debug_dataframes - View loaded DataFrames",
