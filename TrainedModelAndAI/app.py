@@ -11,9 +11,7 @@ from langchain_community.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema import Document
-
-# ---- API Key ----
-API_KEY = ''
+from config import API_KEY
 
 # ---- Logging ----
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -644,7 +642,7 @@ Instructions for generating the answer:
 2. Extract the most relevant information from the data to answer their question
 3. Provide a direct, concise answer in natural language
 4. For list queries (e.g., "list all female employees"), provide comma-separated names or items
-5. For specific information queries (e.g., "department of John"), provide just the requested information there can be case where deparment have multiple fileds like Department (Value Stream) and Sub Department (Sub Stream) give all in a
+5. For specific information queries (e.g., "department of John"), provide just the requested information and there can be case where deparment have multiple fileds like Department (Value Stream) and Sub Department (Sub Stream) give all in answer.
 6. For count queries, provide the number
 7. For descriptive queries, provide a brief summary
 8. If there are multiple results, organize them logically (alphabetically, by relevance, etc.)
@@ -657,9 +655,7 @@ Examples of good answers:
 - Query: "How many employees are in sales?" → Answer: "12 employees"
 - Query: "Who has birthday in July?" → Answer: "Mike Wilson (July 15), Sarah Davis (July 22)"
 
-CRITICAL: 
-1. Provide ONLY the direct answer, no explanations about the data structure or methodology.
-2. For specific information queries (e.g., "department of John"), provide just the requested information and there can be case where deparment have multiple fileds like Department (Value Stream) and Sub Department (Sub Stream) give all in answer.
+CRITICAL: Provide ONLY the direct answer, no explanations about the data structure or methodology.
 """
     
     try:
@@ -782,7 +778,7 @@ async def ask(query: str = Query(...)):
     except Exception as e:
         logger.error(f"Error processing query: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
-    
+
 @app.get("/chat")
 async def chat(query: str = Query(...)):
     """
@@ -1076,22 +1072,30 @@ async def rebuild_vectorstore():
 @app.get("/")
 async def root():
     return {
-        "message": "Excel Query API with AI Result Filtering and Natural Language Answers",
+        "message": "Excel Query API with AI Assistant - ChatGPT-like Interface",
         "features": [
-            "Direct DataFrame querying for comprehensive results",
-            "AI-powered result filtering for accuracy", 
-            "Smart field mapping with AI",
-            "Post-processing quality control",
-            "Removes false positives automatically",
-            "Natural language answer generation"
+            "ChatGPT-like conversation for any query",
+            "Intelligent data vs general query detection", 
+            "Direct DataFrame querying for data questions",
+            "AI-powered result filtering and consolidation",
+            "Natural language answer generation",
+            "Math solving, HR analysis, general knowledge",
+            "Single endpoint for everything"
         ],
         "endpoints": [
-            "/ask - Direct query + AI filtering + Natural Answer (recommended)",
+            "/chat - Single ChatGPT-like endpoint for ANY query (recommended)",
+            "/ask - Direct query + AI filtering + Natural Answer (data-focused)",
             "/ask_raw - Direct query without AI filtering (for comparison)",
             "/metadata - View available columns",
-            "/debug_dataframes - View loaded DataFrames",
+            "/debug_dataframes - View loaded DataFrames", 
             "/rebuild_vectorstore - Force rebuild"
-        ]
+        ],
+        "how_to_use": {
+            "data_queries": "Ask about your Excel data: 'List all employees', 'Who has birthday in July?'",
+            "general_queries": "Ask anything: 'What is 2+2?', 'Explain remote work benefits'",
+            "analysis": "Get insights: 'Analyze this HR scenario: Employee wants promotion...'",
+            "math": "Solve problems: 'Calculate compound interest for $1000 at 5% for 3 years'"
+        }
     }
 
 if __name__ == "__main__":
