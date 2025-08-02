@@ -13,7 +13,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from config import API_KEY
 from fastapi.middleware.cors import CORSMiddleware
-
+import numpy as np
+import datetime
 
 # ---- Logging ----
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -1106,6 +1107,54 @@ async def root():
             "math": "Solve problems: 'Calculate compound interest for $1000 at 5% for 3 years'"
         }
     }
+
+EXCEL_FILES = {
+    "klaar": "data/Klaar Data.xlsx",
+    "amber": "data/Amber Data.xlsx",
+    "master": "data/Employee Master Darwin.xlsx",
+    "hiring": "data/New Hire Requsition Portal Data.xlsx",
+    "offer": "data/Offer Data.xlsx"
+}
+
+def safe_serialize(val):
+    if pd.isna(val) or val in [np.inf, -np.inf]:
+        return None
+    if isinstance(val, (datetime.datetime, datetime.date)):
+        return val.strftime('%Y-%m-%d')
+    if isinstance(val, datetime.time):
+        return val.strftime('%H:%M:%S')  # Or '%I:%M %p' if you want AM/PM
+    return val
+
+@app.get("/data")
+def get_excel_data(source: str = Query(..., description="Source key, e.g., klaar, master, hiring")):
+    """
+    Generic endpoint to return all sheets from a selected Excel source file.
+    Example: GET /data?source=klaar
+    """
+    try:
+        file_path = EXCEL_FILES.get(source.lower())
+        if not file_path:
+            return JSONResponse(status_code=404, content={"error": f"Unknown source '{source}'."})
+
+        # Read all sheets
+        xls = pd.read_excel(file_path, sheet_name=None)
+
+        result = {}
+        for sheet_name, df in xls.items():
+            df.dropna(how='all', inplace=True)
+            df.dropna(axis=1, how='all', inplace=True)
+
+            serialized_rows = []
+            for _, row in df.iterrows():
+                serialized_row = {col: safe_serialize(val) for col, val in row.items()}
+                serialized_rows.append(serialized_row)
+
+            result[sheet_name] = serialized_rows
+
+        return JSONResponse(content=result)
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 if __name__ == "__main__":
     import uvicorn
